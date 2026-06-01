@@ -173,17 +173,119 @@ export const EncuestaEditor = ({ encuesta, onClose }: { encuesta: any, onClose: 
     setSaving(true);
     setErrorMsg('');
     try {
-      const payload = {
-        encuestaId: encuesta.id,
-        secciones: secciones
-      };
-      
-      const { data, error } = await supabase.functions.invoke('guardar-preguntas', {
-        body: payload
-      });
-      
-      if (error) throw error;
-      if (data && data.error) throw new Error(data.error);
+      // 1. Obtener secciones actuales en db
+      const { data: dbSecciones, error: dbSecErr } = await supabase
+        .from('encuesta_secciones')
+        .select('id')
+        .eq('encuesta_id', encuesta.id);
+      if (dbSecErr) throw dbSecErr;
+
+      const currSecIds = secciones.filter(s => !s.isNew).map(s => s.id);
+      const dbSecIds = (dbSecciones || []).map(s => s.id);
+      const toDeleteSecs = dbSecIds.filter(id => !currSecIds.includes(id));
+
+      if (toDeleteSecs.length > 0) {
+        const { error: delSecErr } = await supabase.from('encuesta_secciones').delete().in('id', toDeleteSecs);
+        if (delSecErr) throw delSecErr;
+      }
+
+      for (const [sIndex, sec] of secciones.entries()) {
+        let sid = sec.id;
+        const sPayload = {
+          encuesta_id: encuesta.id,
+          titulo: sec.titulo,
+          orden: sIndex + 1
+        };
+
+        if (sec.isNew) {
+          const { data: newS, error: nSErr } = await supabase
+            .from('encuesta_secciones')
+            .insert(sPayload)
+            .select('id')
+            .single();
+          if (nSErr) throw nSErr;
+          sid = newS.id;
+        } else {
+          const { error: uSErr } = await supabase
+            .from('encuesta_secciones')
+            .update(sPayload)
+            .eq('id', sid);
+          if (uSErr) throw uSErr;
+        }
+
+        // Obtener preguntas actuales de la sección en DB
+        const { data: dbPregs, error: dbPErr } = await supabase
+          .from('preguntas')
+          .select('id')
+          .eq('seccion_id', sid);
+        if (dbPErr) throw dbPErr;
+
+        const currPregsIds = sec.preguntas.filter((p: any) => !p.isNew).map((p: any) => p.id);
+        const dbPregsIds = (dbPregs || []).map(p => p.id);
+        const toDeletePregs = dbPregsIds.filter(id => !currPregsIds.includes(id));
+
+        if (toDeletePregs.length > 0) {
+          const { error: delPErr } = await supabase.from('preguntas').delete().in('id', toDeletePregs);
+          if (delPErr) throw delPErr;
+        }
+
+        for (const [pIndex, preg] of sec.preguntas.entries()) {
+          const pPayload: any = {
+            seccion_id: sid,
+            texto: preg.texto,
+            tipo: preg.tipo,
+            opciones: preg.opciones,
+            obligatoria: preg.es_obligatoria ?? true,
+            orden: pIndex + 1,
+            categoria_id: preg.categoria_id || null
+          };
+
+          if (preg.valor_minimo !== undefined) pPayload.escala_min = preg.valor_minimo;
+          if (preg.valor_maximo !== undefined) pPayload.escala_max = preg.valor_maximo;
+          if (preg.unidad !== undefined) pPayload.unidad = preg.unidad;
+
+          let pid = preg.id;
+
+          if (preg.isNew) {
+            const { data: newP, error: npErr } = await supabase.from('preguntas').insert(pPayload).select('id').single();
+            if (npErr) throw npErr;
+            pid = newP.id;
+          } else {
+            const { error: upErr } = await supabase.from('preguntas').update(pPayload).eq('id', pid);
+            if (upErr) throw upErr;
+          }
+
+          // Handle scoring_opciones
+          if (preg.scoringOpciones && preg.scoringOpciones.length > 0) {
+            await supabase.from('scoring_opciones').delete().eq('pregunta_id', pid);
+            const soPayload = preg.scoringOpciones.map((so: any) => ({
+              pregunta_id: pid,
+              opcion_valor: so.opcion_valor,
+              score: so.score
+            }));
+            await supabase.from('scoring_opciones').insert(soPayload);
+          } else {
+             await supabase.from('scoring_opciones').delete().eq('pregunta_id', pid);
+          }
+
+          // Handle scoring_tramos
+          if (preg.scoringTramos && preg.scoringTramos.length > 0) {
+            await supabase.from('scoring_tramos').delete().eq('pregunta_id', pid);
+            const stPayload = preg.scoringTramos.map((st: any, idx: number) => ({
+              pregunta_id: pid,
+              orden: idx + 1,
+              condicion_tipo: st.condicion_tipo,
+              condicion_valor: st.condicion_valor,
+              condicion_valor_min: st.condicion_valor_min,
+              condicion_valor_max: st.condicion_valor_max,
+              formula: st.formula
+            }));
+            await supabase.from('scoring_tramos').insert(stPayload);
+          } else {
+             await supabase.from('scoring_tramos').delete().eq('pregunta_id', pid);
+          }
+        }
+      }
 
       onClose(); // Exit on success
     } catch (e: any) {
