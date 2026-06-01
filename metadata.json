@@ -1,0 +1,6 @@
+{
+  "name": "Travesía MVP",
+  "description": "Sistema de Seguimiento de Alumnos en Riesgo de Deserción",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
