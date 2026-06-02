@@ -257,20 +257,24 @@ export const EncuestaEditor = ({ encuesta, onClose }: { encuesta: any, onClose: 
 
           // Handle scoring_opciones
           if (preg.scoringOpciones && preg.scoringOpciones.length > 0) {
-            await supabase.from('scoring_opciones').delete().eq('pregunta_id', pid);
+            const { error: delSoErr } = await supabase.from('scoring_opciones').delete().eq('pregunta_id', pid);
+            if (delSoErr) throw delSoErr;
             const soPayload = preg.scoringOpciones.map((so: any) => ({
               pregunta_id: pid,
               opcion_valor: so.opcion_valor,
               score: so.score
             }));
-            await supabase.from('scoring_opciones').insert(soPayload);
+            const { error: insSoErr } = await supabase.from('scoring_opciones').insert(soPayload);
+            if (insSoErr) throw insSoErr;
           } else {
-             await supabase.from('scoring_opciones').delete().eq('pregunta_id', pid);
+             const { error: delSoErr } = await supabase.from('scoring_opciones').delete().eq('pregunta_id', pid);
+             if (delSoErr) throw delSoErr;
           }
 
           // Handle scoring_tramos
           if (preg.scoringTramos && preg.scoringTramos.length > 0) {
-            await supabase.from('scoring_tramos').delete().eq('pregunta_id', pid);
+            const { error: delStErr } = await supabase.from('scoring_tramos').delete().eq('pregunta_id', pid);
+            if (delStErr) throw delStErr;
             const stPayload = preg.scoringTramos.map((st: any, idx: number) => ({
               pregunta_id: pid,
               orden: idx + 1,
@@ -280,9 +284,11 @@ export const EncuestaEditor = ({ encuesta, onClose }: { encuesta: any, onClose: 
               condicion_valor_max: st.condicion_valor_max,
               formula: st.formula
             }));
-            await supabase.from('scoring_tramos').insert(stPayload);
+            const { error: insStErr } = await supabase.from('scoring_tramos').insert(stPayload);
+            if (insStErr) throw insStErr;
           } else {
-             await supabase.from('scoring_tramos').delete().eq('pregunta_id', pid);
+             const { error: delStErr } = await supabase.from('scoring_tramos').delete().eq('pregunta_id', pid);
+             if (delStErr) throw delStErr;
           }
         }
       }

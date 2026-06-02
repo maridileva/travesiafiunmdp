@@ -13,6 +13,8 @@ import { Encuestas } from './dashboards/Encuestas';
 import { DashEncuestasAdmin } from './dashboards/DashEncuestasAdmin';
 import { ImportarAlumnos } from './dashboards/ImportarAlumnos';
 import { EncuestaInicial } from './dashboards/EncuestaInicial';
+import { Configuracion } from './dashboards/Configuracion';
+import { Settings as SettingsIcon } from 'lucide-react';
 
   // Login Component
 const Login = () => {
@@ -270,6 +272,7 @@ const AppLayout = () => {
       { title: "Plan", icon: <BookOpen className="w-5 h-5" />, href: "/plan" },
       { title: "Encuestas", icon: <ClipboardList className="w-5 h-5" />, href: "/encuestas" },
       { title: "Usuarios", icon: <Users className="w-5 h-5" />, href: "/usuarios" },
+      { title: "Ajustes", icon: <SettingsIcon className="w-5 h-5" />, href: "/configuracion" },
       { title: "Salir", icon: <LogOut className="w-5 h-5" />, href: "/logout" },
     ];
   }
@@ -324,6 +327,7 @@ export const AppRouter = () => {
           <Route path="materias" element={<Placeholder title="Materias" />} />
           <Route path="reportes" element={<Placeholder title="Reportes" />} />
           <Route path="usuarios" element={<Placeholder title="Usuarios" />} />
+          <Route path="configuracion" element={<Configuracion />} />
           <Route path="importar-alumnos" element={<ImportarAlumnos />} />
         </Route>
         <Route path="/logout" element={<Logout />} />
