@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { DistribucionCohorte } from '../types/database';
 
 export const getUltimoScore = async (estudianteId: string) => {
   return await supabase
@@ -20,12 +21,8 @@ export const getHistorialScores = async (estudianteId: string) => {
 
 export const getDistribucionCohorte = async (carreraId: string) => {
   return await supabase
-    .from('scores')
-    .select(`
-      nivel_riesgo,
-      estudiantes!inner (carrera_id)
-    `)
-    .eq('estudiantes.carrera_id', carreraId);
+    .rpc('get_distribucion_cohorte', { p_carrera_id: carreraId })
+    .single();
 };
 
 export const recalcularScore = async (estudianteId: string) => {

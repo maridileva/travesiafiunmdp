@@ -1,6 +1,8 @@
 -- Proyecto Travesía - Esquema Inicial de Base de Datos para Supabase
 -- Ejecutá este script en el SQL Editor de tu proyecto de Supabase.
 
+SET search_path TO extensions, public;
+
 -- Habilitar extensión para UUIDs
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -35,6 +37,8 @@ CREATE TABLE public.usuario_roles (
   UNIQUE(usuario_id, rol, carrera_id)
 );
 ALTER TABLE public.usuario_roles ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.usuario_roles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.usuario_roles TO service_role;
 
 CREATE TABLE public.estudiantes (
   id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -158,14 +162,20 @@ CREATE TABLE public.preguntas (
   id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
   seccion_id uuid REFERENCES public.encuesta_secciones(id) ON DELETE CASCADE NOT NULL,
   texto text NOT NULL,
-  tipo text NOT NULL CHECK (tipo IN ('texto', 'multiple', 'unica', 'escala')),
+  descripcion text,
+  tipo text NOT NULL CHECK (tipo IN ('texto', 'multiple', 'unica', 'escala', 'numerica')),
   opciones jsonb,
   escala_min int,
   escala_max int,
   orden int NOT NULL,
-  obligatoria boolean DEFAULT true,
+  es_obligatoria boolean DEFAULT true,
   aplica_por_materia boolean DEFAULT false,
-  peso_defecto numeric(5,2) DEFAULT 0
+  peso_defecto numeric(5,2) DEFAULT 0,
+  categoria_id uuid,
+  valor_minimo numeric,
+  valor_maximo numeric,
+  unidad text,
+  created_at timestamptz DEFAULT now()
 );
 ALTER TABLE public.preguntas ENABLE ROW LEVEL SECURITY;
 
@@ -319,3 +329,28 @@ BEGIN;
   CREATE PUBLICATION supabase_realtime;
 COMMIT;
 ALTER PUBLICATION supabase_realtime ADD TABLE alertas;
+
+-- GRANT permissions to authenticated role for all tables
+-- Without this, RLS policies are active but the role lacks basic table access
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.usuarios TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.carreras TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.usuario_roles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.estudiantes TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.materias TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.plan_estudios TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.correlativas TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.progreso_estudiante TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.cursadas TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.finales TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.encuestas TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.encuesta_secciones TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.preguntas TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.sesiones_encuesta TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.respuestas TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.indicadores TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.indicador_componentes TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.scores TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.asignaciones_tutor TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.alertas TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.intervenciones TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.entrevistas TO authenticated;

@@ -20,6 +20,19 @@ CREATE POLICY "Permitir lectura a todos los autenticados en carreras"
   TO authenticated
   USING (true);
 
+-- Política para que cada usuario pueda ver su propio rol
+CREATE POLICY "Usuarios ven su propio rol"
+  ON public.usuario_roles FOR SELECT
+  TO authenticated
+  USING (usuario_id = auth.uid());
+
+CREATE POLICY "Administradores pueden todo en usuario_roles"
+  ON public.usuario_roles FOR ALL
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+-- Políticas para carreras
 CREATE POLICY "Permitir todo a administradores en carreras"
   ON public.carreras FOR ALL
   TO authenticated

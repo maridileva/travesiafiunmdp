@@ -10,8 +10,8 @@ export const getEncuestaActiva = async (
       encuesta_secciones (
         id, titulo, descripcion, orden,
         preguntas (
-          id, texto, tipo, orden, obligatoria,
-          opciones, escala_min, escala_max,
+          id, texto, tipo, orden, es_obligatoria,
+          opciones, valor_minimo, valor_maximo, descripcion,
           aplica_por_materia, peso_defecto
         )
       )

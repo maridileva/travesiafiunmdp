@@ -61,12 +61,12 @@ serve(async (req) => {
           texto: preg.texto,
           tipo: preg.tipo,
           opciones: preg.opciones,
-          obligatoria: preg.es_obligatoria ?? true,
+          es_obligatoria: preg.es_obligatoria ?? true,
           orden: pIndex + 1,
         };
         
-        if (preg.valor_minimo !== undefined) payloadPreg.escala_min = preg.valor_minimo;
-        if (preg.valor_maximo !== undefined) payloadPreg.escala_max = preg.valor_maximo;
+        if (preg.valor_minimo !== undefined) payloadPreg.valor_minimo = preg.valor_minimo;
+        if (preg.valor_maximo !== undefined) payloadPreg.valor_maximo = preg.valor_maximo;
 
         let pid = preg.id;
         if (preg.isNew) {

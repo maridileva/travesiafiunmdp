@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getUltimoScore, getHistorialScores, getDistribucionCohorte } from '../services/scoresService';
+import { DistribucionCohorte } from '../types/database';
 
 export const useScore = (estudianteId?: string, carreraId?: string) => {
   const [ultimoScore, setUltimoScore] = useState<any>(null);
   const [historial, setHistorial] = useState<any[]>([]);
-  const [distribucion, setDistribucion] = useState<any[]>([]);
+  const [distribucion, setDistribucion] = useState<DistribucionCohorte | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export const useScore = (estudianteId?: string, carreraId?: string) => {
         
         if (carreraId) {
           const { data: distData } = await getDistribucionCohorte(carreraId);
-          setDistribucion(distData ?? []);
+          setDistribucion(distData as DistribucionCohorte | null);
         }
       } catch (err: any) {
         setError(err.message);

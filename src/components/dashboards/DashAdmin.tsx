@@ -38,16 +38,20 @@ export const DashAdmin = () => {
   let riskDistribution: any[] = [];
   let numEnRiesgo = 0;
 
-  if (distribucion && distribucion.length > 0) {
-    const dataRow = distribucion[0];
-    totalEstudiantes = dataRow.bajo + dataRow.medio + dataRow.alto + dataRow.critico;
-    numEnRiesgo = dataRow.alto + dataRow.critico;
+  if (distribucion) {
+    const bajo = Number(distribucion.bajo) || 0;
+    const medio = Number(distribucion.medio) || 0;
+    const alto = Number(distribucion.alto) || 0;
+    const critico = Number(distribucion.critico) || 0;
+
+    totalEstudiantes = bajo + medio + alto + critico;
+    numEnRiesgo = alto + critico;
     
     riskDistribution = [
-      { name: 'Vigoroso', value: dataRow.bajo, color: '#14B8A6' },
-      { name: 'Moderado', value: dataRow.medio, color: '#3B82F6' },
-      { name: 'Alto Riesgo', value: dataRow.alto, color: '#F59E0B' },
-      { name: 'Crítico', value: dataRow.critico, color: '#EF4444' },
+      { name: 'Vigoroso', value: bajo, color: '#14B8A6' },
+      { name: 'Moderado', value: medio, color: '#3B82F6' },
+      { name: 'Alto Riesgo', value: alto, color: '#F59E0B' },
+      { name: 'Crítico', value: critico, color: '#EF4444' },
     ].filter(d => d.value > 0);
   }
 

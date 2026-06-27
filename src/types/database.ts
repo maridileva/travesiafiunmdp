@@ -50,3 +50,10 @@ export interface ScoringTramo {
   condicion_valor_max: number | null;
   formula: string;
 }
+
+export interface DistribucionCohorte {
+  bajo: number;
+  medio: number;
+  alto: number;
+  critico: number;
+}

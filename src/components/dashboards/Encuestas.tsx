@@ -4,6 +4,7 @@ import { usePerfil } from '../../hooks/usePerfil';
 import { useEncuesta } from '../../hooks/useEncuesta';
 import { usePlan } from '../../hooks/usePlan';
 import { guardarRespuesta, guardarCursada, guardarFinal, completarEncuesta } from '../../services/encuestasService';
+import { supabase } from '../../lib/supabase';
 import { Send, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -80,21 +81,41 @@ export const Encuestas = () => {
       for (const [materiaId, data] of Object.entries(formData.notas)) {
         const d = data as any;
         if (d.estado !== 'no_cursada') {
-          const cData = {
-            estudiante_id: usuario.id,
-            materia_id: materiaId,
-            cuatrimestre: cuatr,
-            anio: currentYear,
-            situacion: d.estado as any,
-          };
-          const { data: cResp } = await guardarCursada(cData);
-          
-          if (cResp && (d.estado === 'aprobada' || d.estado === 'desaprobada')) {
-            await guardarFinal({
-              cursada_id: cResp.id,
+          if (d.estado === 'aprobada' || d.estado === 'desaprobada') {
+            // Split flow: aprobada/desaprobada route to finales + progreso_estudiante
+            // Insert cursadas row with situacion='desaprobo' as FK anchor for finales.cursada_id
+            const cData = {
               estudiante_id: usuario.id,
               materia_id: materiaId,
-              resultado: d.estado === 'aprobada' ? 'aprobado' : 'desaprobado'
+              cuatrimestre: cuatr,
+              anio: currentYear,
+              situacion: 'desaprobo' as const,
+            };
+            const { data: cResp } = await guardarCursada(cData);
+
+            if (cResp) {
+              await guardarFinal({
+                cursada_id: cResp.id,
+                estudiante_id: usuario.id,
+                materia_id: materiaId,
+                resultado: d.estado === 'aprobada' ? 'aprobado' : 'desaprobado'
+              });
+            }
+
+            // Upsert progreso_estudiante
+            await supabase.from('progreso_estudiante').upsert({
+              estudiante_id: usuario.id,
+              materia_id: materiaId,
+              estado: d.estado === 'aprobada' ? 'aprobada' : 'final_pendiente'
+            }, { onConflict: 'estudiante_id,materia_id' });
+          } else {
+            // Normal cursada flow: promovio/habilito/desaprobo/abandono
+            await guardarCursada({
+              estudiante_id: usuario.id,
+              materia_id: materiaId,
+              cuatrimestre: cuatr,
+              anio: currentYear,
+              situacion: d.estado,
             });
           }
         }

@@ -54,6 +54,8 @@ export const EncuestaEditor = ({ encuesta, onClose }: { encuesta: any, onClose: 
       preguntas: (pregs || []).filter((p: any) => p.seccion_id === s.id).map(p => ({
          ...p,
          isNew: false,
+         valor_minimo: p.valor_minimo,
+         valor_maximo: p.valor_maximo,
          scoringOpciones: (scoringOps || []).filter((so: any) => so.pregunta_id === p.id),
          scoringTramos: (scoringTramos || []).filter((st: any) => st.pregunta_id === p.id)
       }))
@@ -235,14 +237,15 @@ export const EncuestaEditor = ({ encuesta, onClose }: { encuesta: any, onClose: 
             texto: preg.texto,
             tipo: preg.tipo,
             opciones: preg.opciones,
-            obligatoria: preg.es_obligatoria ?? true,
+            es_obligatoria: preg.es_obligatoria ?? true,
             orden: pIndex + 1,
             categoria_id: preg.categoria_id || null
           };
 
-          if (preg.valor_minimo !== undefined) pPayload.escala_min = preg.valor_minimo;
-          if (preg.valor_maximo !== undefined) pPayload.escala_max = preg.valor_maximo;
+          if (preg.valor_minimo !== undefined) pPayload.valor_minimo = preg.valor_minimo;
+          if (preg.valor_maximo !== undefined) pPayload.valor_maximo = preg.valor_maximo;
           if (preg.unidad !== undefined) pPayload.unidad = preg.unidad;
+          if (preg.descripcion !== undefined) pPayload.descripcion = preg.descripcion;
 
           let pid = preg.id;
 
