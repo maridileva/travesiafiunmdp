@@ -37,7 +37,8 @@ export const DashEstudiante = () => {
   const levelInfo = scoreMap[riskLevel];
 
   // Radial chart data pseudo random since this hasn't been fully migrated
-  const data = [{ name: 'Progress', value: 75, fill: levelInfo.color }];
+  const scoreValor = ultimoScore?.valor ? Math.round(ultimoScore.valor) : 0;
+  const data = [{ name: 'Riesgo', value: scoreValor, fill: levelInfo.color }];
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
@@ -65,7 +66,8 @@ export const DashEstudiante = () => {
               </RadialBarChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold text-white">{Math.round(data[0].value)}%</span>
+              <span className="text-2xl font-bold text-white">{scoreValor}</span>
+              <span className="text-xs text-gray-400 mt-1">score</span>
             </div>
           </div>
 

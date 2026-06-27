@@ -120,106 +120,131 @@ serve(async (req) => {
   // PASO 3: CONFIGURACIÓN - RECUPERAMOS LOS PORCENTAJES DE CADA PILAR
   // ============================================================================
   // Tomamos cuánto "empuja" cada factor al resultado final (el 100%).
-  
-  let pesoAcademico = 0.40;
-  let pesoEncuesta = 0.35;
+  //
+  // SISTEMA FLEXIBLE + NORMALIZACIÓN AUTOMÁTICA:
+  // El admin puede cambiar los pesos desde el panel, agregar nuevos indicadores
+  // o desactivar alguno. Para que el score siempre sume correctamente,
+  // normalizamos los pesos dividiéndolos por la suma total de activos.
+  // Ejemplo: si el admin pone 50/30/10/5 (suma 95), los normalizamos a 1.0
+  // automáticamente sin que el resultado se vea afectado.
+
+  // Defaults hardcodeados (se usan solo si la BD está vacía)
+  let pesoAcademico     = 0.40;
+  let pesoEncuesta      = 0.35;
   let pesoRalentizacion = 0.15;
-  let pesoAislamiento = 0.10;
-  
-  if (indicadores) {
-     const iAca = indicadores.find((i: any) => i.nombre?.toLowerCase().includes('académico'));
-     if (iAca && iAca.peso !== undefined) pesoAcademico = iAca.peso / 100;
+  let pesoAislamiento   = 0.10;
 
-     const iEnc = indicadores.find((i: any) => i.nombre?.toLowerCase().includes('encuesta') || i.nombre?.toLowerCase().includes('emocional'));
-     if (iEnc && iEnc.peso !== undefined) pesoEncuesta = iEnc.peso / 100;
+  if (indicadores && indicadores.length > 0) {
+    // Solo consideramos los indicadores activos
+    const activos = indicadores.filter((i: any) => i.activo !== false);
 
-     const iRal = indicadores.find((i: any) => i.nombre?.toLowerCase().includes('ralentizaci'));
-     if (iRal && iRal.peso !== undefined) pesoRalentizacion = iRal.peso / 100;
+    // Suma total de pesos activos (puede no ser 100 si el admin los cambió)
+    const totalPeso = activos.reduce((sum: number, i: any) => sum + (Number(i.peso) || 0), 0);
 
-     const iAis = indicadores.find((i: any) => i.nombre?.toLowerCase().includes('aislamiento'));
-     if (iAis && iAis.peso !== undefined) pesoAislamiento = iAis.peso / 100;
+    if (totalPeso > 0) {
+      // Helper: busca un indicador por palabras clave en su nombre y devuelve
+      // su peso ya normalizado (peso / totalPeso). Si no existe, devuelve 0.
+      const getPesoNormalizado = (...keywords: string[]): number => {
+        const ind = activos.find((i: any) =>
+          keywords.some(kw => i.nombre?.toLowerCase().includes(kw))
+        );
+        return ind ? (Number(ind.peso) / totalPeso) : 0;
+      };
+
+      const pA  = getPesoNormalizado('académico', 'rendimiento');
+      const pE  = getPesoNormalizado('encuesta', 'emocional', 'bienestar');
+      const pR  = getPesoNormalizado('ralentizaci');
+      const pAi = getPesoNormalizado('aislamiento');
+
+      // Si encontramos al menos los 4 pilares base, los usamos.
+      // Si el admin agregó indicadores nuevos con otros nombres, sus pesos
+      // ya están absorbidos en la normalización aunque no los calculemos
+      // explícitamente acá (el denominador totalPeso los incluye).
+      const sumEncontrados = pA + pE + pR + pAi;
+      if (sumEncontrados > 0) {
+        pesoAcademico     = pA;
+        pesoEncuesta      = pE;
+        pesoRalentizacion = pR;
+        pesoAislamiento   = pAi;
+      }
+    }
   }
 
   // Variables donde alojaremos la 'Nota base del 0 al 100' final antes de aplicar los porcentajes
-  let scoreAcademicoBruto = 0; 
-  let scoreRalentizacionBruto = 0; 
-  
-  // ============================================================================
-  // PASO 4: CÁLCULOS DEL RIESGO - PILAR ACADÉMICO / NOTAS Y RECURSADAS
-  // ============================================================================
-  // Revisamos todas las materias del recorrido ideal para contar cuantas debería tener aprobadas
-  const { data: planMaterias } = await supabase
-    .from('plan_estudios')
-    .select('anio_teorico, cuatrimestre')
-    .eq('carrera_id', estudianteData?.carrera_id || 'dummy');
+  let scoreAcademicoBruto = 0;
+  let scoreRalentizacionBruto = 0;
 
-  if (estudianteData && planMaterias) {
-    const currentYear = new Date().getFullYear();
-    const isSecondHalf = new Date().getMonth() >= 6;
-    const aniosDif = Math.max(0, currentYear - estudianteData.anio_ingreso);
-    
-    // Calculamos cuantos semestres teóricos pasó el alumno en la universidad (Aprox.)
-    const cuatrimestresTranscurridos = Math.max(1, (aniosDif * 2) + (isSecondHalf ? 2 : 1) - 1);
-    
-    // Contamos cuentas materias tiene el pan hasta el semestre de hoy. Esta es su "Meta".
-    const materiasEsperadasCount = planMaterias.filter((m: any) => ((m.anio_teorico - 1) * 2 + m.cuatrimestre) <= cuatrimestresTranscurridos).length;
+  // ============================================================================
+  // PASO 4 y 5: PILARES ACADÉMICO Y RALENTIZACIÓN
+  // ============================================================================
+  // Usamos la función get_resumen_academico que ya considera correlativas.
+  // Esto es más preciso que el cálculo manual anterior porque:
+  //   - No penaliza al alumno por materias que no puede cursar aún (bloqueadas)
+  //   - Detecta materias habilitadas que el alumno eligió no cursar (señal extra)
+  //   - El cálculo de cuatrimestres transcurridos vive en la BD, no duplicado acá
 
-    // Calculo si debemos castigar al alumno sacando notas por las veces que recurse ó aplace.
-    let materiasAprobadasCount = 0;
+  const { data: resumenAcademico } = await supabase
+    .rpc('get_resumen_academico', {
+      p_estudiante_id: estudiante_id,
+      p_carrera_id:    estudianteData?.carrera_id ?? '',
+      p_anio_ingreso:  estudianteData?.anio_ingreso ?? new Date().getFullYear()
+    })
+    .single();
+
+  if (resumenAcademico) {
+    const {
+      materias_aprobadas,
+      materias_esperadas,
+      materias_habilitadas_no_cursadas,
+      ratio_avance
+    } = resumenAcademico;
+
+    // ── PILAR ACADÉMICO ──────────────────────────────────────────────────────
+    // Base: qué tan lejos está del ideal (0 = al día, 100 = no aprobó nada)
+    const baseAcademico = materias_esperadas > 0
+      ? (1 - Number(ratio_avance)) * 100
+      : 0;
+
+    // Penalización por recursadas (la info viene de cursadas, igual que antes)
     let penalizacionAplazos = 0;
-    
     if (cursadas && cursadas.length > 0) {
-      const aprobadasIds = new Set<string>();
       const maxCursadasPorMateria: Record<string, number> = {};
-
       cursadas.forEach((c: any) => {
-        // Marcamos si promovió o pasó el examen final como materia completada
-        if (c.situacion === 'promovio') aprobadasIds.add(c.materia_id);
-        if (c.finales && c.finales.some((f: any) => f.resultado === 'aprobado')) {
-          aprobadasIds.add(c.materia_id);
-        }
-        // Registramos cuántas veces ha anotado cursar la misma materia para ver los fallos.
-        maxCursadasPorMateria[c.materia_id] = Math.max(maxCursadasPorMateria[c.materia_id] || 0, c.numero_cursada || 1);
+        maxCursadasPorMateria[c.materia_id] = Math.max(
+          maxCursadasPorMateria[c.materia_id] || 0,
+          c.numero_cursada || 1
+        );
       });
-      
-      materiasAprobadasCount = aprobadasIds.size;
-      
-      // Aplicar castigo extra al riesgo: +5 pts por segunda vez cursando o +10 pts tras una cuádruple recursión
-      Object.values(maxCursadasPorMateria).forEach(numCursadas => {
-         if (numCursadas >= 2) penalizacionAplazos += 5;
-         if (numCursadas >= 3) penalizacionAplazos += 10;
+      Object.values(maxCursadasPorMateria).forEach(n => {
+        if (n >= 2) penalizacionAplazos += 5;
+        if (n >= 3) penalizacionAplazos += 10;
       });
-      // Limitamos el tope para no destruir la barra y ponerle 500 puntos de riesgo a nadie. 
       penalizacionAplazos = Math.min(30, penalizacionAplazos);
     }
-    
-    // Evaluar que tanto le faltó: 
-    let ratioAcademico = 1.0;
-    if (materiasEsperadasCount > 0) {
-      ratioAcademico = materiasAprobadasCount / materiasEsperadasCount;
-    }
-    
-    let baseAcademico = 0;
-    if (ratioAcademico < 1.0) { // Si le va peor a su ideal... suma puntos de riesgo:
-       baseAcademico = (1 - ratioAcademico) * 100;
-    }
-    // Su riesgo Académico va del 0 al 100, y junta materias perdidas + aplazos/recursiones
+
     scoreAcademicoBruto = Math.min(100, baseAcademico + penalizacionAplazos);
-    
-    // ============================================================================
-    // PASO 5: CÁLCULOS DEL RIESGO - PILAR RALENTIZACIÓN
-    // ============================================================================
-    // Si bien su historial está siendo mal, queremos saber: ¿Será un descolgado total?
-    if (materiasEsperadasCount > 0) {
-      // brecha es cuánto del plan de vida se atrasó
-      const brecha = (materiasEsperadasCount - materiasAprobadasCount) / materiasEsperadasCount;
+
+    // ── PILAR RALENTIZACIÓN ──────────────────────────────────────────────────
+    // Mide qué tan lejos está del ritmo ideal, con aceleración progresiva.
+    // Además suma si tiene materias habilitadas que no arrancó (desmotivación).
+    if (materias_esperadas > 0) {
+      const brecha = 1 - Number(ratio_avance); // 0 = al día, 1 = no aprobó nada
+
       if (brecha <= 0) {
-         scoreRalentizacionBruto = 0;
+        scoreRalentizacionBruto = 0;
       } else if (brecha <= 0.20) {
-         scoreRalentizacionBruto = brecha * 100; // Un retraso leve suma levemente (hasta 20%).
+        // Retraso leve: crece linealmente hasta 20
+        scoreRalentizacionBruto = brecha * 100;
       } else {
-         scoreRalentizacionBruto = 20 + ((brecha - 0.20) * 200); // Si es más de un 20% el estudiante necesita salvavidas por ende aceleramos que tan fuerte pega este riesgo.
+        // Retraso grave: crece más rápido a partir del 20%
+        scoreRalentizacionBruto = 20 + ((brecha - 0.20) * 200);
       }
+
+      // Bonus de riesgo: tiene materias habilitadas pero no las arrancó
+      // Cada materia así suma 3 puntos (tope: 15 puntos extra)
+      const bonusSinCursar = Math.min(15, (materias_habilitadas_no_cursadas || 0) * 3);
+      scoreRalentizacionBruto += bonusSinCursar;
+
       scoreRalentizacionBruto = Math.min(100, Math.max(0, scoreRalentizacionBruto));
     }
   }
