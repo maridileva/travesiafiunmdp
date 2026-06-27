@@ -4,12 +4,13 @@ export const getEstudiantesDelTutor = async (tutorId: string) => {
   return await supabase
     .from('asignaciones_tutor')
     .select(`
-     usuarios!asignaciones_tutor_estudiante_id_fkey (
-  id, nombre, apellido, email, legajo
-),
-estudiantes (
-  carrera_id, anio_ingreso
-)
+      estudiante_id,
+      usuarios!asignaciones_tutor_estudiante_id_fkey (
+        id, nombre, apellido, email, legajo
+      ),
+      estudiantes!asignaciones_tutor_estudiante_id_fkey (
+        carrera_id, anio_ingreso
+      )
     `)
     .eq('tutor_id', tutorId)
     .eq('activa', true);
@@ -46,3 +47,4 @@ export const getMiPerfil = async (userId: string) => {
     .eq('id', userId)
     .single();
 };
+
