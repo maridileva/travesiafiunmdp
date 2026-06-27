@@ -17,8 +17,6 @@ import { Configuracion } from './dashboards/Configuracion';
 import { Settings as SettingsIcon } from 'lucide-react';
 
   // Login Component
-const Login = () => {// Login Component — versión demo con acceso rápido por rol
-// Reemplaza el componente Login en src/components/AppRouter.tsx
 
 const Login = () => {
   const { usuario, rol, loading } = useAuth();
