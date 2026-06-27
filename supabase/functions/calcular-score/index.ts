@@ -116,6 +116,11 @@ serve(async (req) => {
     });
   }
 
+  // Si no hay encuesta completada, el pilar emocional no debe dar 0
+  // (ausencia de datos = incertidumbre = riesgo medio)
+  if (!sesion || !respuestas || respuestas.length === 0) {
+    scoreEncuestaTotal = 50;
+  }
   // ============================================================================
   // PASO 3: CONFIGURACIÓN - RECUPERAMOS LOS PORCENTAJES DE CADA PILAR
   // ============================================================================
