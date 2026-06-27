@@ -266,8 +266,6 @@ const Login = () => {
     </>
   );
 };
-};
-
 // Layout Principal
 const AppLayout = () => {
   const { usuario, rol, loading } = useAuth();
