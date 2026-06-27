@@ -4,13 +4,13 @@ export const getEstudiantesDelTutor = async (tutorId: string) => {
   return await supabase
     .from('asignaciones_tutor')
     .select(`
-      estudiante_id,
-      usuarios!asignaciones_tutor_estudiante_id_fkey (
+     usuarios!asignaciones_tutor_estudiante_id_fkey (
   id, nombre, apellido, email, legajo
 ),
 estudiantes (
   carrera_id, anio_ingreso
 )
+    `)
     .eq('tutor_id', tutorId)
     .eq('activa', true);
 };
