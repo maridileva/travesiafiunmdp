@@ -5,13 +5,12 @@ export const getEstudiantesDelTutor = async (tutorId: string) => {
     .from('asignaciones_tutor')
     .select(`
       estudiante_id,
-      usuarios!estudiante_id (
-        id, nombre, apellido, email, legajo
-      ),
-      estudiantes!estudiante_id (
-        carrera_id, anio_ingreso
-      )
-    `)
+      usuarios!asignaciones_tutor_estudiante_id_fkey (
+  id, nombre, apellido, email, legajo
+),
+estudiantes (
+  carrera_id, anio_ingreso
+)
     .eq('tutor_id', tutorId)
     .eq('activa', true);
 };
